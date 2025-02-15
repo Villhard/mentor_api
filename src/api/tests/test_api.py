@@ -1,7 +1,7 @@
+from django.contrib.auth import get_user_model
 from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase
-from django.contrib.auth import get_user_model
 
 User = get_user_model()
 
@@ -19,29 +19,24 @@ class TestUrls(APITestCase):
             "user_detail": lambda user_id: reverse("api:users-detail", args=[user_id]),
         }
 
-        cls.user_no_relations = User.objects.create_user(
-            username="no_relations",
-            password="testpass123"
+        cls.test_user = User.objects.create_user(
+            username="test_user",
+            password="testpassword",
         )
         cls.user_with_mentees = User.objects.create_user(
-            username="has_mentees",
-            password="testpass123"
+            username="has_mentees", password="testpass123"
         )
         cls.user_with_mentor = User.objects.create_user(
-            username="has_mentor",
-            password="testpass123"
+            username="has_mentor", password="testpass123"
         )
         cls.user_with_both = User.objects.create_user(
-            username="has_both",
-            password="testpass123"
+            username="has_both", password="testpass123"
         )
         cls.mentee1 = User.objects.create_user(
-            username="mentee1",
-            password="testpass123"
+            username="mentee1", password="testpass123"
         )
         cls.mentee2 = User.objects.create_user(
-            username="mentee2",
-            password="testpass123"
+            username="mentee2", password="testpass123"
         )
 
         cls.user_with_mentees.mentees.add(cls.mentee1, cls.mentee2)
@@ -53,14 +48,10 @@ class TestUrls(APITestCase):
 
     def setUp(self):
         super().setUp()
-        self.user = User.objects.create_user(
-            username="testuser",
-            password="testpassword",
-        )
         response = self.client.post(
             self.urls["login"],
             {
-                "username": "testuser",
+                "username": self.test_user.username,
                 "password": "testpassword",
             },
             format="json",
@@ -68,16 +59,12 @@ class TestUrls(APITestCase):
         self.access_token = response.data["access"]
         self.refresh_token = response.data["refresh"]
 
-    def tearDown(self):
-        super().tearDown()
-        self.user.delete()
-
     def test_registration_success(self):
         initial_count = User.objects.count()
         payload = {
-            "username": "testuser2",
-            "password": "testpassword2",
-            "email": "testuser2@example.com",
+            "username": "newuser",
+            "password": "testpass123",
+            "email": "newuser@example.com",
             "phone_number": "+79991234567",
         }
 
@@ -85,12 +72,14 @@ class TestUrls(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(User.objects.count(), initial_count + 1)
+        self.assertEqual(User.objects.last().email, "newuser@example.com")
+        self.assertEqual(User.objects.last().phone_number, "+79991234567")
 
     def test_registration_success_without_phone_number_and_email(self):
         initial_count = User.objects.count()
         payload = {
-            "username": "testuser2",
-            "password": "testpassword2",
+            "username": "newuser2",
+            "password": "testpass123",
         }
 
         response = self.client.post(self.urls["registration"], payload, format="json")
@@ -101,7 +90,7 @@ class TestUrls(APITestCase):
 
     def test_login_success(self):
         payload = {
-            "username": "testuser",
+            "username": self.test_user.username,
             "password": "testpassword",
         }
 
@@ -152,15 +141,19 @@ class TestUrls(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
     def test_user_list_success(self):
+        initial_count = User.objects.count()
+        mentor_count = User.objects.filter(mentees__isnull=False).distinct().count()
+
         response = self.client.get(self.urls["users"])
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), 7)
-        self.assertIn("no_relations", [user["username"] for user in response.data])
+        self.assertEqual(len(response.data), initial_count)
+        self.assertIn("test_user", [user["username"] for user in response.data])
         self.assertIn("has_mentees", [user["username"] for user in response.data])
         self.assertIn("has_mentor", [user["username"] for user in response.data])
         self.assertIn("has_both", [user["username"] for user in response.data])
         self.assertIn("mentee1", [user["username"] for user in response.data])
         self.assertIn("mentee2", [user["username"] for user in response.data])
-        self.assertEqual(len([user for user in response.data if user["is_mentor"]]), 2)
-        
+        self.assertEqual(
+            len([user for user in response.data if user["is_mentor"]]), mentor_count
+        )
