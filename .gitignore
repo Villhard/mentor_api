@@ -11,3 +11,6 @@ wheels/
 
 # Database
 *.sqlite3
+
+# System files
+.DS_Store
