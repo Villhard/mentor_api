@@ -20,4 +20,42 @@ class RegistrationSerializer(serializers.ModelSerializer):
         user.set_password(validated_data["password"])
         user.save()
         return user
-    
+
+
+class UserListSerializer(serializers.ModelSerializer):
+    is_mentor = serializers.SerializerMethodField()
+
+    class Meta:
+        model = User
+        fields = ["id", "username", "is_mentor"]
+
+    def get_is_mentor(self, user):
+        return user.is_mentor
+
+
+class UserDetailSerializer(serializers.ModelSerializer):
+    mentor = serializers.SerializerMethodField()
+    mentees = serializers.SerializerMethodField()
+    password = serializers.CharField(write_only=True)
+
+    class Meta:
+        model = User
+        fields = [
+            "id",
+            "username",
+            "email",
+            "phone_number",
+            "password",
+            "mentor",
+            "mentees",
+        ]
+
+    def get_mentor(self, user):
+        if user.is_mentor:
+            return user.mentor.username
+        return None
+
+    def get_mentees(self, user):
+        if user.mentees.exists():
+            return [mentee.username for mentee in user.mentees.all()]
+        return []
