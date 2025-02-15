@@ -8,7 +8,7 @@ class Config(BaseSettings):
     # Основные настройки Django
     SECRET_KEY: str
     DEBUG: bool = True
-    ALLOWED_HOSTS: list[str] = ["*"]
+    ALLOWED_HOSTS: str = "*"
     
     # Настройки базы данных
     DB_ENGINE: str
@@ -27,6 +27,12 @@ class Config(BaseSettings):
         env_file_encoding = "utf-8"
         case_sensitive = True
         extra = "ignore"
+    
+    @property
+    def ALLOWED_HOSTS_LIST(self):
+        if self.ALLOWED_HOSTS == "*":
+            return ["*"]
+        return self.ALLOWED_HOSTS.split(",")
 
 
 config = Config()
