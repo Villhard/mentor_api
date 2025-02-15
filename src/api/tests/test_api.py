@@ -11,6 +11,7 @@ class TestUrls(APITestCase):
     def setUpClass(cls):
         super().setUpClass()
         cls.urls = {
+            "registration": reverse("api:registration"),
             "login": reverse("api:token_obtain_pair"),
             "refresh": reverse("api:token_refresh"),
             "logout": reverse("api:token_blacklist"),
@@ -36,6 +37,31 @@ class TestUrls(APITestCase):
     def tearDown(self):
         super().tearDown()
         self.user.delete()
+
+    def test_registration_success(self):
+        payload = {
+            "username": "testuser2",
+            "password": "testpassword2",
+            "email": "testuser2@example.com",
+            "phone_number": "+79991234567",
+        }
+
+        response = self.client.post(self.urls["registration"], payload, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(User.objects.count(), 2)
+
+    def test_registration_success_without_phone_number_and_email(self):
+        payload = {
+            "username": "testuser2",
+            "password": "testpassword2",
+        }
+
+        response = self.client.post(self.urls["registration"], payload, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(User.objects.count(), 2)
+        self.assertEqual(User.objects.last().email, "")
 
     def test_login_success(self):
         payload = {
