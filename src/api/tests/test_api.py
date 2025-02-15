@@ -40,7 +40,6 @@ class TestUrls(APITestCase):
         )
 
         cls.test_user_client = APIClient()
-        cls.test_user_client.force_authenticate(user=cls.test_user)
 
         cls.user_with_mentees.mentees.add(cls.mentee1, cls.mentee2)
         cls.user_with_mentor.mentor = cls.user_with_mentees
@@ -61,6 +60,7 @@ class TestUrls(APITestCase):
         )
         self.access_token = response.data["access"]
         self.refresh_token = response.data["refresh"]
+        self.test_user_client.credentials(HTTP_AUTHORIZATION=f"Bearer {self.access_token}")
 
     def test_registration_success(self):
         initial_count = User.objects.count()
@@ -246,3 +246,29 @@ class TestUrls(APITestCase):
             sorted(mentees.values_list("username", flat=True)),
             sorted(payload["mentees"]),
         )
+
+    def test_user_update_password_success(self):
+        user_id = self.test_user.id
+        payload = {
+            "old_password": "testpassword",
+            "new_password": "newpassword",
+        }
+
+        response = self.test_user_client.put(self.urls["user_detail"](user_id), payload, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        updated_user = User.objects.get(id=user_id)
+        self.assertTrue(updated_user.check_password("newpassword"))
+
+    def test_user_update_password_failure(self):
+        user_id = self.test_user.id
+        payload = {
+            "old_password": "wrongpassword",
+            "new_password": "newpassword",
+        }
+
+        response = self.test_user_client.put(self.urls["user_detail"](user_id), payload, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        updated_user = User.objects.get(id=user_id)
+        self.assertTrue(updated_user.check_password("testpassword"))

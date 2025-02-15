@@ -36,7 +36,6 @@ class UserListSerializer(serializers.ModelSerializer):
 class UserDetailSerializer(serializers.ModelSerializer):
     mentor = serializers.SerializerMethodField()
     mentees = serializers.SerializerMethodField()
-    password = serializers.CharField(write_only=True)
 
     class Meta:
         model = User
@@ -45,7 +44,6 @@ class UserDetailSerializer(serializers.ModelSerializer):
             "username",
             "email",
             "phone_number",
-            "password",
             "mentor",
             "mentees",
         ]
@@ -69,6 +67,9 @@ class UserDetailSerializer(serializers.ModelSerializer):
 
 
 class UserUpdateSerializer(serializers.ModelSerializer):
+    username = serializers.CharField(required=False)
+    email = serializers.EmailField(required=False)
+    phone_number = serializers.CharField(required=False)
     old_password = serializers.CharField(write_only=True, required=False)
     new_password = serializers.CharField(write_only=True, required=False)
     mentor = serializers.CharField(required=False, allow_null=True)
@@ -86,10 +87,13 @@ class UserUpdateSerializer(serializers.ModelSerializer):
     def get_mentees_data(self, obj):
         return [mentee.username for mentee in obj.mentees.all()]
 
-    def validate_old_password(self, value):
-        if not self.instance.check_password(value):
-            raise serializers.ValidationError("Старый пароль неверный")
-        return value
+    def validate(self, attrs):
+        if "new_password" in attrs:
+            if "old_password" not in attrs:
+                raise serializers.ValidationError("Старый пароль не указан")
+            if not self.instance.check_password(attrs["old_password"]):
+                raise serializers.ValidationError("Старый пароль неверный")
+        return attrs
 
     def validate_mentor(self, value):
         if value:
@@ -108,9 +112,10 @@ class UserUpdateSerializer(serializers.ModelSerializer):
         return []
 
     def update(self, instance, validated_data):
-        if "old_password" in validated_data:
+        if "new_password" in validated_data:
             instance.set_password(validated_data.pop("new_password"))
-            validated_data.pop("old_password")
+            validated_data.pop("old_password", None)
+            instance.save()
 
         if "mentees" in validated_data:
             instance.mentees.set(validated_data.pop("mentees"))
