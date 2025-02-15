@@ -1,14 +1,12 @@
 from pathlib import Path
 from datetime import timedelta
+from .config import config
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-SECRET_KEY = "django-insecure-g4n)-es-#s+jipp1b*m)ts_=m4362$_ynb4h=q5ym8nh@fe#-3"
-
-DEBUG = True
-
-ALLOWED_HOSTS = []
-
+SECRET_KEY = config.SECRET_KEY
+DEBUG = config.DEBUG
+ALLOWED_HOSTS = config.ALLOWED_HOSTS
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -35,7 +33,6 @@ SIMPLE_JWT = {
     "ROTATE_REFRESH_TOKENS": True,
     "BLACKLIST_AFTER_ROTATION": True,
     "UPDATE_LAST_LOGIN": True,
-
     "AUTH_HEADER_TYPES": ("Bearer",),
     "AUTH_TOKEN_CLASSES": ("rest_framework_simplejwt.tokens.AccessToken",),
 }
@@ -70,14 +67,16 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "core.wsgi.application"
 
-
 DATABASES = {
     "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
+        "ENGINE": config.DB_ENGINE,
+        "NAME": config.DB_NAME,
+        "USER": config.DB_USER,
+        "PASSWORD": config.DB_PASSWORD,
+        "HOST": config.DB_HOST,
+        "PORT": config.DB_PORT,
     }
 }
-
 
 AUTH_PASSWORD_VALIDATORS = [
     {
@@ -94,18 +93,14 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
-
-LANGUAGE_CODE = "en-us"
-
-TIME_ZONE = "UTC"
+LANGUAGE_CODE = config.LANGUAGE_CODE
+TIME_ZONE = config.TIME_ZONE
 
 USE_I18N = True
-
 USE_TZ = True
 
-
-STATIC_URL = "static/"
-
+STATIC_URL = "/static/"
+STATIC_ROOT = BASE_DIR / "static"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
