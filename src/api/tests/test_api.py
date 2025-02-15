@@ -1,7 +1,7 @@
 from django.contrib.auth import get_user_model
 from django.urls import reverse
 from rest_framework import status
-from rest_framework.test import APITestCase
+from rest_framework.test import APITestCase, APIClient
 
 User = get_user_model()
 
@@ -38,6 +38,9 @@ class TestUrls(APITestCase):
         cls.mentee2 = User.objects.create_user(
             username="mentee2", password="testpass123"
         )
+
+        cls.test_user_client = APIClient()
+        cls.test_user_client.force_authenticate(user=cls.test_user)
 
         cls.user_with_mentees.mentees.add(cls.mentee1, cls.mentee2)
         cls.user_with_mentor.mentor = cls.user_with_mentees
@@ -115,7 +118,7 @@ class TestUrls(APITestCase):
             "refresh": self.refresh_token,
         }
 
-        response = self.client.post(self.urls["refresh"], payload, format="json")
+        response = self.test_user_client.post(self.urls["refresh"], payload, format="json")
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertIn("access", response.data)
@@ -126,7 +129,7 @@ class TestUrls(APITestCase):
             "refresh": self.refresh_token,
         }
 
-        response = self.client.post(self.urls["logout"], payload, format="json")
+        response = self.test_user_client.post(self.urls["logout"], payload, format="json")
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
@@ -136,7 +139,7 @@ class TestUrls(APITestCase):
         }
         self.client.post(self.urls["logout"], payload, format="json")
 
-        response = self.client.post(self.urls["refresh"], payload, format="json")
+        response = self.test_user_client.post(self.urls["refresh"], payload, format="json")
 
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
@@ -144,7 +147,7 @@ class TestUrls(APITestCase):
         initial_count = User.objects.count()
         mentor_count = User.objects.filter(mentees__isnull=False).distinct().count()
 
-        response = self.client.get(self.urls["users"])
+        response = self.test_user_client.get(self.urls["users"])
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data), initial_count)
@@ -156,4 +159,90 @@ class TestUrls(APITestCase):
         self.assertIn("mentee2", [user["username"] for user in response.data])
         self.assertEqual(
             len([user for user in response.data if user["is_mentor"]]), mentor_count
+        )
+
+    def test_user_detail_success(self):
+        user_id = self.test_user.id
+
+        response = self.test_user_client.get(self.urls["user_detail"](user_id))
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["username"], self.test_user.username)
+        self.assertNotIn("mentor", response.data)
+        self.assertNotIn("mentees", response.data)
+
+    def test_user_with_mentor_detail_success(self):
+        user_id = self.user_with_mentor.id
+        mentor_username = self.user_with_mentor.mentor.username
+
+        response = self.test_user_client.get(self.urls["user_detail"](user_id))
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["username"], self.user_with_mentor.username)
+        self.assertNotIn("mentees", response.data)
+        self.assertIn("mentor", response.data)
+        self.assertEqual(response.data["mentor"], mentor_username)
+
+    def test_user_with_mentees_detail_success(self):
+        user_id = self.user_with_mentees.id
+        mentees_count = self.user_with_mentees.mentees.count()
+        mentees_usernames = [mentee.username for mentee in self.user_with_mentees.mentees.all()]
+
+        response = self.test_user_client.get(self.urls["user_detail"](user_id))
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["username"], self.user_with_mentees.username)
+        self.assertIn("mentees", response.data)
+        self.assertEqual(len(response.data["mentees"]), mentees_count)
+        self.assertEqual(
+            sorted(response.data["mentees"]),
+            sorted(mentees_usernames),
+        )
+    
+    def test_user_with_both_detail_success(self):
+        user_id = self.user_with_both.id
+        mentees_count = self.user_with_both.mentees.count()
+        mentees_usernames = [mentee.username for mentee in self.user_with_both.mentees.all()]
+        mentor_username = self.user_with_both.mentor.username
+        
+        response = self.test_user_client.get(self.urls["user_detail"](user_id))
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["username"], self.user_with_both.username)
+        self.assertIn("mentees", response.data)
+        self.assertIn("mentor", response.data)
+        self.assertEqual(len(response.data["mentees"]), mentees_count)
+        self.assertEqual(response.data["mentor"], mentor_username)
+        self.assertEqual(
+            sorted(response.data["mentees"]),
+            sorted(mentees_usernames),
+        )
+
+    def test_user_update_success(self):
+        user_id = self.test_user.id
+        payload = {
+            "username": "updated_user",
+            "email": "updated@example.com",
+            "phone_number": "+79992345678",
+            "mentor": self.user_with_mentees.username,
+            "mentees": [self.mentee1.username, self.mentee2.username],
+        }
+
+        response = self.test_user_client.put(self.urls["user_detail"](user_id), payload, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["username"], payload["username"])
+        self.assertEqual(response.data["email"], payload["email"])
+        self.assertEqual(response.data["phone_number"], payload["phone_number"])
+        self.assertEqual(response.data["mentor"], payload["mentor"])
+        self.assertEqual(
+            sorted(response.data["mentees"]),
+            sorted(payload["mentees"]),
+        )
+        
+        mentees = User.objects.filter(mentor=self.test_user)
+        self.assertEqual(mentees.count(), len(payload["mentees"]))
+        self.assertEqual(
+            sorted(mentees.values_list("username", flat=True)),
+            sorted(payload["mentees"]),
         )

@@ -51,7 +51,7 @@ class UserDetailSerializer(serializers.ModelSerializer):
         ]
 
     def get_mentor(self, user):
-        if user.is_mentor:
+        if user.mentor:
             return user.mentor.username
         return None
 
@@ -59,3 +59,80 @@ class UserDetailSerializer(serializers.ModelSerializer):
         if user.mentees.exists():
             return [mentee.username for mentee in user.mentees.all()]
         return []
+
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        for field in ["mentor", "mentees"]:
+            if representation[field] in [None, []]:
+                representation.pop(field)
+        return representation
+
+
+class UserUpdateSerializer(serializers.ModelSerializer):
+    old_password = serializers.CharField(write_only=True, required=False)
+    new_password = serializers.CharField(write_only=True, required=False)
+    mentor = serializers.CharField(required=False, allow_null=True)
+    mentees = serializers.ListField(
+        child=serializers.CharField(),
+        required=False,
+        write_only=True
+    )
+    mentees_data = serializers.SerializerMethodField(read_only=True)
+
+    class Meta:
+        model = User
+        fields = ["username", "email", "phone_number", "mentor", "mentees", "mentees_data", "old_password", "new_password"]
+
+    def get_mentees_data(self, obj):
+        return [mentee.username for mentee in obj.mentees.all()]
+
+    def validate_old_password(self, value):
+        if not self.instance.check_password(value):
+            raise serializers.ValidationError("Старый пароль неверный")
+        return value
+
+    def validate_mentor(self, value):
+        if value:
+            try:
+                return User.objects.get(username=value)
+            except User.DoesNotExist:
+                raise serializers.ValidationError("Ментор не найден")
+        return None
+
+    def validate_mentees(self, values):
+        if values:
+            try:
+                return User.objects.filter(username__in=values)
+            except User.DoesNotExist:
+                raise serializers.ValidationError("Менти не найдены")
+        return []
+
+    def update(self, instance, validated_data):
+        if "old_password" in validated_data:
+            instance.set_password(validated_data.pop("new_password"))
+            validated_data.pop("old_password")
+
+        if "mentees" in validated_data:
+            instance.mentees.set(validated_data.pop("mentees"))
+
+        if "mentor" in validated_data:
+            instance.mentor = validated_data.pop("mentor")
+
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+
+        instance.save()
+        return instance
+
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+
+        if instance.mentor:
+            representation['mentor'] = instance.mentor.username
+        representation['mentees'] = representation.pop('mentees_data', [])
+
+        for field in ["mentor", "mentees"]:
+            if representation[field] in [None, []]:
+                representation.pop(field)
+
+        return representation
