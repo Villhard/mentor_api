@@ -1,3 +1,4 @@
+import re
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
 
@@ -10,6 +11,12 @@ class RegistrationSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ["username", "password", "email", "phone_number"]
+
+    def validate_phone_number(self, value):
+        phone_pattern = re.compile(r"^\+?[1-9]\d{8,14}$")
+        if not phone_pattern.match(value):
+            raise serializers.ValidationError("Неверный формат номера телефона")
+        return value
 
     def create(self, validated_data):
         user = User(

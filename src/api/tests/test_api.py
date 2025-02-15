@@ -272,3 +272,57 @@ class TestUrls(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         updated_user = User.objects.get(id=user_id)
         self.assertTrue(updated_user.check_password("testpassword"))
+
+    def test_registration_with_invalid_data(self):
+        payloads = [
+            {
+                "username": "",  # пустой username
+                "password": "testpass123",
+            },
+            {
+                "username": "user",
+                "password": "testpass123",
+                "email": "invalid-email",  # неверный формат email
+            },
+            {
+                "username": "user",
+                "password": "testpass123",
+                "phone_number": "123",  # неверный формат телефона
+            },
+        ]
+
+        for payload in payloads:
+            response = self.client.post(self.urls["registration"], payload, format="json")
+            self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_update_other_user_forbidden(self):
+        other_user = User.objects.create_user(
+            username="other_user",
+            password="testpass123"
+        )
+        payload = {
+            "username": "hacked_user",
+        }
+
+        response = self.test_user_client.put(
+            self.urls["user_detail"](other_user.id),
+            payload,
+            format="json"
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        other_user.refresh_from_db()
+        self.assertEqual(other_user.username, "other_user")
+
+    def test_set_nonexistent_mentor(self):
+        payload = {
+            "mentor": "nonexistent_user"
+        }
+
+        response = self.test_user_client.put(
+            self.urls["user_detail"](self.test_user.id),
+            payload,
+            format="json"
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
