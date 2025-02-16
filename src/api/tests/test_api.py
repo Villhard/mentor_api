@@ -150,15 +150,15 @@ class TestUrls(APITestCase):
         response = self.test_user_client.get(self.urls["users"])
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), initial_count)
-        self.assertIn("test_user", [user["username"] for user in response.data])
-        self.assertIn("has_mentees", [user["username"] for user in response.data])
-        self.assertIn("has_mentor", [user["username"] for user in response.data])
-        self.assertIn("has_both", [user["username"] for user in response.data])
-        self.assertIn("mentee1", [user["username"] for user in response.data])
-        self.assertIn("mentee2", [user["username"] for user in response.data])
+        self.assertEqual(response.data["count"], initial_count)
+        self.assertIn("test_user", [user["username"] for user in response.data["results"]])
+        self.assertIn("has_mentees", [user["username"] for user in response.data["results"]])
+        self.assertIn("has_mentor", [user["username"] for user in response.data["results"]])
+        self.assertIn("has_both", [user["username"] for user in response.data["results"]])
+        self.assertIn("mentee1", [user["username"] for user in response.data["results"]])
+        self.assertIn("mentee2", [user["username"] for user in response.data["results"]])
         self.assertEqual(
-            len([user for user in response.data if user["is_mentor"]]), mentor_count
+            len([user for user in response.data["results"] if user["is_mentor"]]), mentor_count
         )
 
     def test_user_detail_success(self):
