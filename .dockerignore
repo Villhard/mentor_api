@@ -1,0 +1,12 @@
+.git/
+.venv/
+.ruff_cache/
+__pycache__/
+
+.env
+.DS_Store
+*.pyc
+*.sqlite3
+
+src/api/migrations/
+src/api/tests/
