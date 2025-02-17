@@ -1,6 +1,5 @@
 from drf_spectacular.utils import extend_schema
 
-
 docs_schemes = {
     "registration": extend_schema(
         methods=["POST"],

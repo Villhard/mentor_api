@@ -1,7 +1,8 @@
 import re
-from rest_framework import serializers
+
 from django.contrib.auth import get_user_model
 from drf_spectacular.utils import extend_schema_field
+from rest_framework import serializers
 
 User = get_user_model()
 
@@ -87,15 +88,22 @@ class UserUpdateSerializer(serializers.ModelSerializer):
     new_password = serializers.CharField(write_only=True, required=False)
     mentor = serializers.CharField(required=False, allow_null=True)
     mentees = serializers.ListField(
-        child=serializers.CharField(),
-        required=False,
-        write_only=True
+        child=serializers.CharField(), required=False, write_only=True
     )
     mentees_data = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         model = User
-        fields = ["username", "email", "phone_number", "mentor", "mentees", "mentees_data", "old_password", "new_password"]
+        fields = [
+            "username",
+            "email",
+            "phone_number",
+            "mentor",
+            "mentees",
+            "mentees_data",
+            "old_password",
+            "new_password",
+        ]
 
     @extend_schema_field(list[str])
     def get_mentees_data(self, obj):
@@ -147,8 +155,8 @@ class UserUpdateSerializer(serializers.ModelSerializer):
         representation = super().to_representation(instance)
 
         if instance.mentor:
-            representation['mentor'] = instance.mentor.username
-        representation['mentees'] = representation.pop('mentees_data', [])
+            representation["mentor"] = instance.mentor.username
+        representation["mentees"] = representation.pop("mentees_data", [])
 
         for field in ["mentor", "mentees"]:
             if representation[field] in [None, []]:
