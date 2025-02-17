@@ -1,6 +1,7 @@
 import re
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
+from drf_spectacular.utils import extend_schema_field
 
 User = get_user_model()
 
@@ -38,6 +39,7 @@ class UserListSerializer(serializers.ModelSerializer):
         model = User
         fields = ["id", "username", "is_mentor"]
 
+    @extend_schema_field(bool)
     def get_is_mentor(self, user):
         return user.is_mentor
 
@@ -57,11 +59,13 @@ class UserDetailSerializer(serializers.ModelSerializer):
             "mentees",
         ]
 
+    @extend_schema_field(str)
     def get_mentor(self, user):
         if user.mentor:
             return user.mentor.username
         return None
 
+    @extend_schema_field(list[str])
     def get_mentees(self, user):
         if user.mentees.exists():
             return [mentee.username for mentee in user.mentees.all()]
@@ -93,6 +97,7 @@ class UserUpdateSerializer(serializers.ModelSerializer):
         model = User
         fields = ["username", "email", "phone_number", "mentor", "mentees", "mentees_data", "old_password", "new_password"]
 
+    @extend_schema_field(list[str])
     def get_mentees_data(self, obj):
         return [mentee.username for mentee in obj.mentees.all()]
 
